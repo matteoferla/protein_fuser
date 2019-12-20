@@ -1,6 +1,8 @@
 # protein_fuser
 A py3 script to fuse structures together.
 
+![fig](protein_fixer-01.png)
+
 This script, best run in a Jupyter notebook, requires pymol within your py environment, which can be installed with conda.
 This is not a PyMOL script, but a Python3 script that uses `module pymol`.
 
