@@ -11,7 +11,10 @@ This is not a PyMOL script, but a Python3 script that uses `module pymol`.
 Human protein, in particular, are often huge multidomain protein, like beads on a string. Each domain crystallised separately.
 Although it is important to use the primary source, it is sometimes beneficial to stitch domains together for a **simple** illustration without the confusion of separate images of say model A with domain X solved at 2.1 &Aring; while model B is an NMR of domain Y bound to protein 2, _etc._
 
-If Rosetta remodel is used, the protein ends up looking like a tangle and not like beads...
+If Rosetta remodel or the ITasser DEMO tool is used, the protein ends up looking like a tangle and not like beads...
+
+A nice analogy are the planets. When pictured they are in syzygy, 
+which is actually extremely rare or impossible depending on how precisely one expects them to align.
 
 This script does the following:
 
