@@ -27,9 +27,9 @@ class Coords(_Coords):
 
 # ======================================================================================================================
 
-class Workshop:
+class Fuser:
     """
-    >>> ws = Workshop(pdbs=[{},{}], debug=False).order().save()
+    >>> fuser = Fuser(pdbs=[{},{}], debug=False).order().save()
     debug: verbosity boolean
     pdbs: [{'uniprot_start': stated_start_in_uniprot,
             'uniprot_end': stated_end_in_uniprot,
@@ -51,7 +51,7 @@ class Workshop:
     `pymol.exporting.multisave('tmp.pdb')` is a handy command if there is a version mismatch with pymol.
     
     Model has many bound methods that use pymol cmds, that affect only one model, say `protein.roll(40)`,
-    while workshop uses more thatn one say, `ws.roll_free(protein_A, protein_B)`.
+    while fuser uses more thatn one say, `ws.roll_free(protein_A, protein_B)`.
     Some methods seems repeated but aren't. the `_models` operate on all.
     ws.ready_models() --> model.fetch_n_clean()
     ws.align_models() --> ws.align(A,B)
@@ -430,7 +430,7 @@ class Workshop:
         if self.debug:
             print('These are the non-redudant chains:')
             display(pd.DataFrame(parts))
-        self.models = [Model(workshop=self, metadata=self.metadata[row.code], **row) for row in parts]
+        self.models = [Model(fuser=self, metadata=self.metadata[row.code], **row) for row in parts]
         return self
 
     def ready_models(self):
@@ -559,7 +559,7 @@ class Model:
     pymol = None
 
     def __init__(self, mode, chain, code, uniprot_start, uniprot_end, pdb_start=1, pdb_end=None, seq=None, length=None,
-                 workshop=None, tier=0,
+                 fuser=None, tier=0,
                  metadata=None, similars=None, subtender=None, url=None):
         """
         Init just stores the variables. but .fetch_and_clean() does all the work by calling:
@@ -570,7 +570,7 @@ class Model:
         * model.fix_numbers()   --> the numbering off quite frequently...
         * model.shift_to_true_Nterminus()  ---> gets rid of unsolved terminus
         * model.shift_to_true_Cterminus()  ---> gets rid of unsolved terminus
-        While other methods are called by the project method of workshop. Say all the angle operations.
+        While other methods are called by the project method of fuser. Say all the angle operations.
         e.g.model.roll(n) or model.get_resi_coords(resi)
         
         The code can be a PDB code. or... PDB:code  or SWISSMODEL:id or LOCAL:filename (without underscores!)
@@ -602,11 +602,14 @@ class Model:
         self.url = url
         self.seq = seq
         self.subtender = subtender
-        if workshop:
-            self.workshop = workshop
+        if fuser:
+            self.fuser = fuser
+            self.pymol = fuser.pymol
+        elif self.pymol is None:
+            raise EnvironmentError('Please assign a pymol session to `cls.pymol`.')
         else:
-            warn('No workshop?')
-            self.workshop = namedtuple('fakeshop', ['debug'])(False)
+            warn('No fuser?')
+            self.fuser = namedtuple('faux', ['debug'])(False)
         self.length = length
 
     @classmethod
@@ -699,7 +702,7 @@ class Model:
         # ================ METHODS FOR LOADING =========================================================================
 
     def fetch_n_clean(self):
-        if self.workshop.debug: print(f'# Fetching for {self.name}')
+        if self.fuser.debug: print(f'# Fetching for {self.name}')
         self.load()
         self.force_chain_A()
         self.start_from_one()
@@ -731,7 +734,7 @@ class Model:
         elif self.mode == 'SWISSMODEL':
             if self.url is None:
                 self.url = f'https://swissmodel.expasy.org/repository/{self.code}.pdb'
-            if self.workshop.debug:
+            if self.fuser.debug:
                 print(self.url)
             pdbblock = requests.get(self.url).text
             if 'END' in pdbblock:
@@ -797,15 +800,16 @@ class Model:
         return self
 
     def move_away_hetatm(self):
-        if self.workshop.debug: print(f'# Protecting hetatms for {self.name}')
+        if self.fuser.debug:
+            print(f'# Protecting hetatms for {self.name}')
         """
-        Renumbers the hetatm residues to 9000+ values, unique in the whole workshop.
+        Renumbers the hetatm residues to 9000+ values, unique in the whole fuser.
         """
         hetatms = {self.make_selection(at.resi, no_hetatm=False) for at in self.pymol.cmd.get_model(self.name).atom if
                    at.hetatm}
         for h in hetatms:
-            self.pymol.cmd.alter(h, f"resi={self.workshop.last_het_index}")
-            self.workshop.last_het_index += 1
+            self.pymol.cmd.alter(h, f"resi={self.fuser.last_het_index}")
+            self.fuser.last_het_index += 1
         self.pymol.cmd.sort()
         return self
 
@@ -816,7 +820,7 @@ class Model:
         residues = self.residues()
         if residues[0][1] != 1:
             Δ = residues[0][1] - 1
-            self.pymol.cmd.alter(f'{self.name} and chain {self.chain}', f'resi=str(int(resi)-{Δ})')
+            self.pymol.cmd.alter(f'{self.name} and chain {self.chain}', f'resv-={Δ}')
             self.pymol.cmd.sort()
         return self
 
@@ -824,14 +828,14 @@ class Model:
         sele = self.make_selection(f'0-{self.pdb_start - 1}')
         if self.pymol.cmd.select(sele) == 0:
             return self
-        if self.workshop.debug:
+        if self.fuser.debug:
             print(f'# NTerm cleaning for {self.name}')
         self.pymol.cmd.remove(sele)
         self.pymol.cmd.sort()
         return self
 
     def clean_Cterminus(self):
-        if self.workshop.debug:
+        if self.fuser.debug:
             print(f'# CTerm cleaning for {self.name}')
         """
         convert the N of the junk resi to OXT.
@@ -851,9 +855,9 @@ class Model:
 
         if self.pdb_start != self.uniprot_start:
             Δ = self.uniprot_start - self.pdb_start
-            if self.workshop.debug:
+            if self.fuser.debug:
                 print(f'# Fixing numbering for {self.name} (offset={Δ}')
-            self.pymol.cmd.alter(f'{self.name} and chain {self.chain}', f'resi=str(int(resi) + {Δ})')
+            self.pymol.cmd.alter(f'{self.name} and chain {self.chain}', f'resv+={Δ}')
             self.pymol.cmd.sort()
             self.pdb_start = self.pdb_start + Δ
             self.pdb_end = self.pdb_end + Δ
@@ -863,7 +867,7 @@ class Model:
         """
         The model may have missing residues at the NTerm, but in reality it is as if they were not there.
         """
-        if self.workshop.debug: print(f'# Shifting Nterm for {self.name}')
+        if self.fuser.debug: print(f'# Shifting Nterm for {self.name}')
         # verify that the start exists.
         coords = None
         current_start = self.pdb_start
@@ -876,7 +880,7 @@ class Model:
         """
         The model may have missing residues at the CTerm, but in reality it is as if they were not there.
         """
-        if self.workshop.debug: print(f'# Shifting Cterm for {self.name}')
+        if self.fuser.debug: print(f'# Shifting Cterm for {self.name}')
         # verify that the end exists.
         coords = None
         l = self.pdb_end
@@ -923,7 +927,7 @@ class Model:
         self.angle_fix()
 
     def angle_fix(self, cycles=3):
-        if self.workshop.debug:
+        if self.fuser.debug:
             print(f'Initial position for model {self.name}.....')
             self.describe()
         # rotate the xy plane
@@ -939,12 +943,12 @@ class Model:
             self.pymol.cmd.translate([-ref.x, -ref.y, -ref.z], self.name, camera=0)
             tail = self.get_resi_coords(self.pdb_end)['C']
             if tail.x < 0:
-                if self.workshop.debug:
+                if self.fuser.debug:
                     print('It is off by 180... Odd.')
                 self.pymol.cmd.rotate([0, 0, 1], 180, selection=self.name, camera=0)  # rotate the xy plane
                 (ref, pointer, θ, φ, internal_d) = self.angles
                 self.pymol.cmd.translate([-ref.x, -ref.y, -ref.z], self.name, camera=0)
-        if self.workshop.debug:
+        if self.fuser.debug:
             print(f'Final position for model {self.name}.....')
             self.describe()
         return self
@@ -966,9 +970,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     with pymol2.SingletonPyMOL() as pymol:
-        Workshop.pymol = pymol
-        Model.pymol = pymol
-        w = Workshop.from_uniprot(args.uniprot, debug=False)
+        Fuser.pymol = pymol
+        w = Fuser.from_uniprot(args.uniprot, debug=False)
         w.order()
         w.save()
         #w.add_xyz()

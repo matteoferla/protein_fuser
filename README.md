@@ -4,17 +4,19 @@ A py3 script to fuse structures together.
 ![fig](protein_fixer-01.png)
 
 This script, best run in a Jupyter notebook, requires pymol within your py environment, which can be installed with conda.
-This is not a PyMOL script, but a Python3 script that uses `module pymol`.
+This is not a PyMOL script, but a Python3 script that uses `module pymol2`.
 
-## Raison d'etre
+## Raison d'être
 
 Human protein, in particular, are often huge multidomain protein, like beads on a string. Each domain crystallised separately.
 Although it is important to use the primary source, it is sometimes beneficial to stitch domains together for a **simple** illustration without the confusion of separate images of say model A with domain X solved at 2.1 &Aring; while model B is an NMR of domain Y bound to protein 2, _etc._
 
-If Rosetta remodel or the ITasser DEMO tool is used, the protein ends up looking like a tangle and not like beads...
+If Rosetta remodel or the ITasser DEMO tool is used, the protein ends up looking like a tangle and not like aligned beads.
 
 A nice analogy are the planets. When pictured they are in syzygy, 
 which is actually extremely rare or impossible depending on how precisely one expects them to align.
+
+![Planets](https://upload.wikimedia.org/wikipedia/commons/thumb/c/cb/Planets2013.svg/500px-Planets2013.svg.png)
 
 This script does the following:
 
@@ -30,24 +32,30 @@ The attribute `ws.joints` contains information of what came from where.
 
 **CAVEAT** It is essential that you let any viewer know that your protein is a Frankenstein protein and it is not known how the bits fit together.
 
-## Next
-
-* I have code to make Rosetta add the missing loops that may be nice to add.
-* I have code to make Rosetta add the post translation modifications that may be nice to add.
-* I would like to automated choose the binding partners
-* I would like to run the script on the whole of the human PDB, with SWISSMODEL, Phyre2 (they have a nice amount thanks to Miscast!) and I-TASSER*
-
-&lowast; I have written a [scraper for I-Tasser](https://github.com/matteoferla/ITasser_miner), which I think is okay, but I need to find out.
-
 ## Input
 
-The input is based on my Uniprot parser (see [protein-module-for-VENUS](https://github.com/matteoferla/protein-module-for-VENUS)).
+The input is made to be compatible with my Uniprot parser (see [protein-module-for-VENUS](https://github.com/matteoferla/protein-module-for-VENUS)).
 This is slightly odd in that it is for use with the NextProt featureViewer ([ref](https://github.com/calipho-sib/feature-viewer)), so the pdb is a list of dictionaries with keys `id`, `x`, `y`, `description` &mdash;description is not used, while id value is `(?PDB|SWISSMODEL|LOCAL:)<code>_<chain>` format, _e.g._ `1WG7_A` or `PDB:1WG7_A` or `1WG7` or `SWISSMODEL:5bf8103b02efd001eeb29f09` or `LOCAL:myfile.pdb`. Additionally, the field `tier` can be added to specify priority. _E.g._ a Phyre2 model is less reliable than a PDB model, so the PDB model should be trusted more, so the user would specify a lower tier (e.g. `1` vs. `2`).
 
+### Alt: Uniprot
 
-## Workshop class
+Alternatively, it can be started with a uniprot id with `Fuser.from_uniprot(uniprot)`.
 
-	ws = Workshop(pdbs, debug).order().save()
+## PyMOL requirement
+
+This module requires pymol as a python3 module. Ie. installed with conda (`pymol2` module comes with `pymol`),
+not as the downloaded GUI application.
+The classes Fuser and Model require a `pymol2.SingletonPyMOL` instance to work.
+To do so assign the pymol instance to `Fuser.pymol` class attribute.
+The parallel `pymol2.PyMOL` will not work as it is unable to rototranslate.
+
+    import pymol2
+    with pymol2.SingletonPyMOL() as pymol:
+            Workshop.pymol = pymol
+
+## Fuser class
+
+	fuser = Fuser(pdbs, debug).order().save()
 
 * `debug`: verbosity boolean
 * `pdbs`: `[{'x': stated_start_in_uniprot,
@@ -63,7 +71,6 @@ For PDB codes, the metadata is fetched to verify what the true values are. While
 Note that Uniprot and PDBe metadata `x` refers to the first residue in the cif file sequence, regardless of existence in the solved structure as is often not the case.
 
 
-
 `ws.order()` readies and aligns and projects the non-redudant models. The all in one workhorse.
 the init step actually calls `wa.categorise()` which categorises the models based on redundancy.
 `ws.ready_models()` loads models
@@ -75,7 +82,7 @@ See model for more about the madness.
 
 Note that there is not a `pymol.cmd.create` step to fuse the parts as simply saving as pdb will do it and instead saving as pse to check things is nice or if there is a version mismathc with pymol (_i.e._ system = Pymol1.8, python pymol2) `pymol.exporting.multisave('tmp.pdb')` is a handy command.
 
-Model has many bound methods that use pymol cmds, that affect only one model, say `protein.roll(40)`. while workshop uses more thatn one say, `ws.roll_free(protein_A, protein_B)`.
+Model has many bound methods that use pymol cmds, that affect only one model, say `protein.roll(40)`. while fuser uses more thatn one say, `ws.roll_free(protein_A, protein_B)`.
 
 Some methods act on all models and will have `_models` in the name.
 
@@ -97,7 +104,7 @@ Some methods act on all models and will have `_models` in the name.
 * `model.shift_to_true_Nterminus()`  ---> gets rid of unsolved terminus
 * `model.shift_to_true_Cterminus()`  ---> gets rid of unsolved terminus
 
-While other methods are called by the project method of workshop. Say all the angle operations.
+While other methods are called by the project method of fuser. Say all the angle operations.
 e.g. `model.roll(n)` or `model.get_resi_coords(resi)`. 
 A method to keep an eye for is `model.angle_fix()`. This ensures that the the N and C termini are on the x axis.
         
@@ -112,47 +119,30 @@ while uniprot start is what the position that residues has in the whole sequence
 ## Example
 	
 	uniprot = 'Q00341' ## vigilin
-	pdbs = [{'x': 432, 'y': 502, 'id': '1VIG_A', 'description': '1VIG'}, 
-		{'x': 432, 'y': 502, 'id': '1VIH_A', 'description': '1VIH'}, 
-		{'x': 142, 'y': 222, 'id': '2CTE_A', 'description': '2CTE'},
-		{'x': 346, 'y': 434, 'id': '2CTF_A', 'description': '2CTF'}, 
-		{'x': 645, 'y': 726, 'id': '2CTJ_A', 'description': '2CTJ'},
-		{'x': 964, 'y': 1054, 'id': '2CTK_A', 'description': '2CTK'},
-		{'x': 1044, 'y': 1127, 'id': '2CTL_A', 'description': '2CTL'},
-		{'x': 1119, 'y': 1200, 'id': '2CTM_A', 'description': '2CTM'}]
-	swissmodel = [{'x': 581, 'y': 724, 'id': '5d5620399ffd12cf2f734256', 'description': '2n8m.1.A (id:2e+01%)'},
-		      {'x': 1053, 'y': 1198, 'id': '5c5f33ed8fd6f9f9ae62f475', 'description': '2jvz.1.A (id:2e+01%)'},
-		      {'x': 583, 'y': 723, 'id': '5c5f33ed8fd6f9f9ae62f465', 'description': '3aev.1.B (id:3e+01%)'},
-		      {'x': 726, 'y': 1068, 'id': '5d5620399ffd12cf2f73425e', 'description': '3n89.1.A (id:1e+01%)'},
-		      {'x': 346, 'y': 434, 'id': '5c5f33ed8fd6f9f9ae62f469', 'description': '2ctf.1.A (id:1e+02%)'},
-		      {'x': 1053, 'y': 1199, 'id': '5d56203a9ffd12cf2f734266', 'description': '3krm.1.A (id:2e+01%)'},
-		      {'x': 508, 'y': 648, 'id': '5d5620399ffd12cf2f734246', 'description': '5wyj.31.A (id:2e+01%)'},
-		      {'x': 584, 'y': 720, 'id': '5c5f33ed8fd6f9f9ae62f485', 'description': '1j4w.1.B (id:2e+01%)'},
-		      {'x': 860, 'y': 1194, 'id': '5d5620399ffd12cf2f73424e', 'description': '3n89.1.A (id:2e+01%)'},
-		      {'x': 655, 'y': 798, 'id': '5c5f33ed8fd6f9f9ae62f491', 'description': '2jvz.1.A (id:2e+01%)'},
-		      {'x': 653, 'y': 796, 'id': '5c5f33ed8fd6f9f9ae62f499', 'description': '6fai.1.F (id:2e+01%)'},
-		      {'x': 651, 'y': 799, 'id': '5d5620399ffd12cf2f73425a', 'description': '2n8m.1.A (id:2e+01%)'},
-		      {'x': 73, 'y': 219, 'id': '5d5620399ffd12cf2f73423a', 'description': '3i82.1.A (id:1e+01%)'},
-		      {'x': 1055, 'y': 1193, 'id': '5c5f33ed8fd6f9f9ae62f471', 'description': '1j4w.1.B (id:2e+01%)'},
-		      {'x': 432, 'y': 502, 'id': '5be4a0a502efd0cd3370539f', 'description': '1vih (id:%)'},
-		      {'x': 432, 'y': 502, 'id': '5be49e6e02efd0c70a281b5c', 'description': '1vig (id:%)'},
-		      {'x': 346, 'y': 434, 'id': '5be49cbe02efd0c17498a975', 'description': '2ctf (id:%)'},
-		      {'x': 1119, 'y': 1200, 'id': '5be4adbd02efd0f036d2a8c4', 'description': '2ctm (id:%)'},
-		       {'x': 964, 'y': 1054, 'id': '5be4a89802efd0e17f75807a', 'description': '2ctk (id:%)'},
-		      {'x': 1044, 'y': 1127, 'id': '5be4ab5f02efd0e942407c0c', 'description': '2ctl (id:%)'},
-		      {'x': 142, 'y': 222, 'id': '5be4999502efd0b97cdb5dd6', 'description': '2cte (id:%)'},
-		      {'x': 645, 'y': 726, 'id': '5be4a62b02efd0db3ee53fd0', 'description': '2ctj (id:%)'}]
-	
+	import pymol2, warnings
+    with pymol2.SingletonPyMOL() as pymol:
+        Workshop.pymol = pymol
+        w = Workshop.from_uniprot(uniprot, debug=False)
+        for m in w.models:
+            print(m)
+        w.order()
+        w.save()
+        for m in w.models:
+            print(m)
+        w.add_xyz()
+        pymol.cmd.save('test.pse')
+        print(w.joints)
+        print(w.old2new)
+        print('done')
 
-	p = [{'tier': 1, **p} for p in pdbs] + [{'tier': 2, **p, 'id': 'SWISSMODEL:'+p['id']} for p in swissmodel]
-	
-	w = Workshop(p, debug=False).order().save()
-	
-	##what operations were done??
-	display(pd.DataFrame.from_records(w.joints).sort_values(by='aft_resi_start'))
+## Next
 
-	print('done')
+* I have code to make Rosetta add the missing loops that may be nice to add.
+* I have code to make Rosetta add the post translation modifications that may be nice to add.
+* I would like to automatedly choose the binding partners
+* I would like to run the script on the whole of the human PDB, with SWISSMODEL, Phyre2 (they have a nice amount thanks to Miscast!) and I-TASSER*
 
+&lowast; I have written a [scraper for I-Tasser](https://github.com/matteoferla/ITasser_miner), which I think is okay, but I need to find out.
 
 
 
