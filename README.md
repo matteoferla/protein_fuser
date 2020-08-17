@@ -71,24 +71,24 @@ For PDB codes, the metadata is fetched to verify what the true values are. While
 Note that Uniprot and PDBe metadata `x` refers to the first residue in the cif file sequence, regardless of existence in the solved structure as is often not the case.
 
 
-`ws.order()` readies and aligns and projects the non-redudant models. The all in one workhorse.
-the init step actually calls `wa.categorise()` which categorises the models based on redundancy.
-`ws.ready_models()` loads models
-`ws.align_models()` aligns overlapping ones
-`ws.project_models()` places models with gaps along the x-axis.
-`ws.models` list of models.
+`fs.order()` readies and aligns and projects the non-redudant models. The all in one workhorse.
+the init step actually calls `fs.categorise()` which categorises the models based on redundancy.
+`fs.ready_models()` loads models
+`fs.align_models()` aligns overlapping ones
+`fs.project_models()` places models with gaps along the x-axis.
+`fs.models` list of models.
 For various reasons, `model.code` is what is used to fetch/load/pdbstr, while `model.name` is the name of the model within PyMol.
 See model for more about the madness.
 
 Note that there is not a `pymol.cmd.create` step to fuse the parts as simply saving as pdb will do it and instead saving as pse to check things is nice or if there is a version mismathc with pymol (_i.e._ system = Pymol1.8, python pymol2) `pymol.exporting.multisave('tmp.pdb')` is a handy command.
 
-Model has many bound methods that use pymol cmds, that affect only one model, say `protein.roll(40)`. while fuser uses more thatn one say, `ws.roll_free(protein_A, protein_B)`.
+Model has many bound methods that use pymol cmds, that affect only one model, say `protein.roll(40)`. while fuser uses more than once say, `fs.roll_free(protein_A, protein_B)`.
 
 Some methods act on all models and will have `_models` in the name.
 
-* `ws.ready_models()` --> `model.fetch_n_clean()`
-* `ws.align_models()` --> `ws.align(A,B)`
-* `ws.project_models()` --> `ws.project(A,B)`
+* `fs.ready_models()` --> `model.fetch_n_clean()`
+* `fs.align_models()` --> `ws.align(A,B)`
+* `fs.project_models()` --> `ws.project(A,B)`
 
 `ws.show_pose()` is a Jupyter notebook specific thing of mine as I am running in headless mode. Namely, it calls `pymol.cmd.save`, waits for the async function to do its thing and load the image as a `display(Image(filename))`.
 
@@ -122,27 +122,27 @@ while uniprot start is what the position that residues has in the whole sequence
 	import pymol2, warnings
     with pymol2.SingletonPyMOL() as pymol:
         Workshop.pymol = pymol
-        w = Workshop.from_uniprot(uniprot, debug=False)
+        f = Fuser.from_uniprot(uniprot, debug=False)
+        for m in f.models:
+            print(m)
+        f.order()
+        f.save()
         for m in w.models:
             print(m)
-        w.order()
-        w.save()
-        for m in w.models:
-            print(m)
-        w.add_xyz()
+        f.add_xyz()
         pymol.cmd.save('test.pse')
-        print(w.joints)
-        print(w.old2new)
+        print(f.joints)
+        print(f.old2new)
         print('done')
 
 ## Next
 
-* I have code to make Rosetta add the missing loops that may be nice to add.
+* I have code to make Rosetta add the missing loops that may be nice to add: see [blog post with code](http://blog.matteoferla.com/2020/07/filling-missing-loops-proper-way.html)
 * I have code to make Rosetta add the post translation modifications that may be nice to add.
 * I would like to automatedly choose the binding partners
 * I would like to run the script on the whole of the human PDB, with SWISSMODEL, Phyre2 (they have a nice amount thanks to Miscast!) and I-TASSER*
 
-&lowast; I have written a [scraper for I-Tasser](https://github.com/matteoferla/ITasser_miner), which I think is okay, but I need to find out.
+&lowast; I have written a [scraper for I-Tasser](https://github.com/matteoferla/ITasser_miner), which I think is legally okay, but I need to find out.
 
 
 
