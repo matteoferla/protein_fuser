@@ -53,7 +53,7 @@ The parallel `pymol2.PyMOL` will not work as it is unable to rototranslate.
 
     import pymol2
     with pymol2.SingletonPyMOL() as pymol:
-            Workshop.pymol = pymol
+            Fuser.pymol = pymol
 
 ## Fuser class
 
@@ -123,13 +123,13 @@ while uniprot start is what the position that residues has in the whole sequence
 	uniprot = 'Q00341' ## vigilin
 	import pymol2, warnings
     with pymol2.SingletonPyMOL() as pymol:
-        Workshop.pymol = pymol
+        Fuser.pymol = pymol
         f = Fuser.from_uniprot(uniprot, debug=False)
         for m in f.models:
             print(m)
         f.order()
         f.save()
-        for m in w.models:
+        for m in f.models:
             print(m)
         f.add_xyz()
         pymol.cmd.save('test.pse')
